@@ -1,0 +1,47 @@
+---
+version: '3'
+services:
+  fedele:
+    container_name: o4n_fedele
+    image: keileb09/o4n_fedele:0.3
+    command: >
+      sh -c "python manage.py migrate && 
+             python manage.py createsuperuser --no-input || true &&
+             python manage.py runserver 0.0.0.0:8000"
+    ports:
+      - '8000:8000'
+    depends_on:
+      - postgres
+      - redis
+    env_file:
+      - ./dev.env
+    volumes:
+      - ./configuration.py:/opt/netbox/netbox/netbox/configuration.py
+    tty: true
+  worker:
+    container_name: o4n_worker_redis
+    image: keileb09/o4n_fedele:0.3
+    command: sh -c "python manage.py rqworker"
+    depends_on:
+      - fedele 
+    env_file:
+      - ./dev.env
+    volumes:
+      - ./configuration.py:/opt/netbox/netbox/netbox/configuration.py
+    tty: true
+  postgres:
+    container_name: o4n_postgres
+    image: postgres:12
+    env_file: dev.env
+    volumes:
+      - pgdata_04n_fedele:/var/lib/postgresql/data
+  redis:
+    container_name: o4n_redis
+    image: redis:5-alpine
+    command:
+      - sh
+      - -c  # this is to evaluate the $REDIS_PASSWORD from the env
+      - redis-server --appendonly yes --requirepass $$REDIS_PASSWORD  ## $$ because of docker-compose
+    env_file: ./dev.env
+volumes:
+  pgdata_04n_fedele:
